@@ -18,6 +18,7 @@
 
 package cz.muni.fi.japanesejmdictsaxparser.saxholder;
 
+import cz.muni.fi.japanesejmdictsaxparser.util.RubyAnnotation;
 import java.io.File;
 import java.io.IOException;
 
@@ -33,6 +34,9 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
 import org.json.JSONArray;
+import org.json.JSONException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
@@ -46,7 +50,7 @@ import org.xml.sax.helpers.DefaultHandler;
  *
  */
 public class SaxDataHolder extends DefaultHandler{
-	
+        final static Logger log = LoggerFactory.getLogger(SaxDataHolder.class);  
 	private static final String LOG_TAG = "SaxDataHolder";	
 		  
         private boolean mCanceled;
@@ -88,9 +92,11 @@ public class SaxDataHolder extends DefaultHandler{
 	private int mPerc = 0;
 	private int mPercSave = 0;
 	
-	
+	public String mRebFirst = null;
+        public String mKebFirst = null;
 	public static final int ENTRIES_COUNT = 170000;
 	
+
         /**
          * If called with true SAXDataHolder will terminate
          * 
@@ -104,21 +110,21 @@ public class SaxDataHolder extends DefaultHandler{
 	/**
 	 * SaxDataHolder constructor
 	 * 
-	 * @param file lucene dictionary for saving documents
+	 * @param androidOutputFolder lucene dictionary for saving documents
 	 * @throws IOException
 	 * @throws IllegalArgumentException if directory doesn't exist
 	 */
-	public SaxDataHolder(File file) throws IOException,IllegalArgumentException{
-		if(file == null){
-                    System.out.println(LOG_TAG+ "SaxDataHolder - dictionary directory is null");
-                    throw new IllegalArgumentException("SaxParser: dictionary directory is null");
+	public SaxDataHolder(File androidOutputFolder) throws IOException,IllegalArgumentException{
+		if(androidOutputFolder == null){
+                    log.debug(LOG_TAG+ "SaxDataHolder - android dictionary directory is null");
+                    throw new IllegalArgumentException("SaxDataHolder: android dictionary directory is null");
 		}
-		Directory dir = FSDirectory.open(file);
-		//Analyzer analyzer = new SimpleAnalyzer(Version.LUCENE_33);
+		Directory dir = FSDirectory.open(androidOutputFolder);
                 Analyzer  analyzer = new CJKAnalyzer(Version.LUCENE_36);
 		IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_36,analyzer);
 		mWriter = new IndexWriter(dir, config);
-		System.out.println(LOG_TAG+ "SaxDataHolder created");
+		log.debug(LOG_TAG+ "SaxDataHolder created");
+
 	}
 	
 	
@@ -129,43 +135,61 @@ public class SaxDataHolder extends DefaultHandler{
 		if(mCanceled){
                     throw new SAXException("SAX terminated due to ParserService end.");
 		}
-		if("entry".equals(qName)){
-                    mDocument = new Document();
-                    mEnglishJSONSense = new JSONArray();
-                    mFrenchJSONSense = new JSONArray();
-                    mDutchJSONSense = new JSONArray();
-                    mGermanJSONSense = new JSONArray();
-                    mRussianJSONSense = new JSONArray();
-                    mJapaneseRebJSON = new JSONArray();
-                    mJapaneseKebJSON = new JSONArray();
-		}else if("reb".equals(qName)){
-                    mJapaneseReb = true;
-		}else if("keb".equals(qName)){
-                    mJapaneseKeb = true;
-		}else if("sense".equals(qName)){
-                    mEnglishJSON = new JSONArray();
-                    mFrenchJSON = new JSONArray();
-                    mDutchJSON = new JSONArray();
-                    mGermanJSON = new JSONArray();
-                    mRussianJSON = new JSONArray();
-		}else if("gloss".equals(qName)){
-                    if("eng".equals(attributes.getValue("xml:lang"))){
-                            //english
-                        mEnglish = true;
-                    }else if("fre".equals(attributes.getValue("xml:lang"))){
-                        mFrench = true;
-                    }else if("dut".equals(attributes.getValue("xml:lang"))){
-                        mDutch = true;
-                    }else if("ger".equals(attributes.getValue("xml:lang"))){
-                        mGerman = true;
-                    }else if("rus".equals(attributes.getValue("xml:lang"))){
-                        mRussian = true;
-                    }
-		}else if("ke_ri".equals(qName) || "re_pri".equals(qName)){
-                    mPriorityTag = true;
-                } else if("pos".equals(qName)){
-                    mPos = true;
-                }		
+                switch(qName){
+                    case"entry":
+                        mDocument = new Document();
+                        mEnglishJSONSense = new JSONArray();
+                        mFrenchJSONSense = new JSONArray();
+                        mDutchJSONSense = new JSONArray();
+                        mGermanJSONSense = new JSONArray();
+                        mRussianJSONSense = new JSONArray();
+                        mJapaneseRebJSON = new JSONArray();
+                        mJapaneseKebJSON = new JSONArray();
+
+
+                        mRebFirst = null;
+                        mKebFirst = null;
+                    break;
+                    case "reb":
+                        mJapaneseReb = true;
+                    break;
+                    case "keb":
+                        mJapaneseKeb = true;
+                    break;
+                    case "sense":
+                        mEnglishJSON = new JSONArray();
+                        mFrenchJSON = new JSONArray();
+                        mDutchJSON = new JSONArray();
+                        mGermanJSON = new JSONArray();
+                        mRussianJSON = new JSONArray();
+                    break;
+                    case "gloss":
+                        switch(attributes.getValue("xml:lang")){
+                            case "eng":
+                                //english
+                                mEnglish = true;
+                            break;    
+                            case "fre":
+                                mFrench = true;
+                            break;
+                            case "dut":
+                                mDutch = true;
+                            break;
+                            case "ger":
+                                mGerman = true;
+                            break;
+                            case "rus":
+                                mRussian = true;
+                            break;
+                        }
+                    break;
+                    case "ke_ri": case "re_pri": 
+                        mPriorityTag = true;
+                    break;
+                    case "pos":
+                        mPos = true;
+                    break;
+             }
         }
 	
 	@Override
@@ -176,10 +200,16 @@ public class SaxDataHolder extends DefaultHandler{
                 String indexString = japString.replaceAll(".(?!$)", "$0 ");
                 mDocument.add(new Field("japanese","lucenematch "+indexString+"lucenematch",Field.Store.NO, Index.ANALYZED));
                 if(mJapaneseKeb){
+                    if(mKebFirst == null){
+                        mKebFirst = japString;
+                    }
                     mJapaneseKebJSON.put(japString);	
                     mJapaneseKeb = false;
                 }
                 if(mJapaneseReb){
+                    if(mRebFirst == null){
+                        mRebFirst = japString;
+                    }
                     mDocument.add(new Field("index_japanese_reb","lucenematch "+indexString+"lucenematch",Field.Store.NO, Index.ANALYZED));
                     mJapaneseRebJSON.put(japString);		
                     mJapaneseReb = false;
@@ -206,98 +236,109 @@ public class SaxDataHolder extends DefaultHandler{
                 }
                 mPriorityTag = false;
             } else if(mPos){
-                mDocument.add(new Field("pos",new String(ch,start,length),Field.Store.NO,Index.ANALYZED));
+                mDocument.add(new Field("pos",new String(ch,start,length), Field.Store.YES, Index.NO));
                 mPos = false;
             }
-		
+            
 	}
 	
 	
 	@Override
 	public void endElement(String uri, String localName, 
 	        String qName) throws SAXException { 
-            if("sense".equals(qName)){
-                if(mEnglishJSON.length()>0){
-                    mEnglishJSONSense.put(mEnglishJSON);
-                }
-                if(mFrenchJSON.length()>0){
-                    mFrenchJSONSense.put(mFrenchJSON);
-                }
-                if(mDutchJSON.length()>0){
-                    mDutchJSONSense.put(mDutchJSON);
-                }
-                if(mGermanJSON.length()>0){
-                    mGermanJSONSense.put(mGermanJSON);
-                }
-                if(mRussianJSON.length()>0){
-                    mRussianJSONSense.put(mRussianJSON);
-                }
-            }else if("entry".equals(qName)){
-                if(mJapaneseKebJSON.length()>0){
-                    mDocument.add(new Field("japanese_keb",mJapaneseKebJSON.toString(),Field.Store.YES,Index.NO));
-                }
-                if(mJapaneseRebJSON.length()>0){
-                    mDocument.add(new Field("japanese_reb",mJapaneseRebJSON.toString(),Field.Store.YES,Index.NO));
-                }
-                if(mEnglishJSONSense.length()>0){
-                    mDocument.add(new Field("english",mEnglishJSONSense.toString(),Field.Store.YES,Index.NO));
-                    mEnglishJSONSense = null;
-                }
-                if(mFrenchJSONSense.length()>0){
-                    mDocument.add(new Field("french",mFrenchJSONSense.toString(),Field.Store.YES,Index.NO));	
-                    mFrenchJSONSense = null;
-                }
-                if(mDutchJSONSense.length()>0){
-                    mDocument.add(new Field("dutch",mDutchJSONSense.toString(),Field.Store.YES,Index.NO));	
-                    mDutchJSONSense = null;
-                }
-                if(mGermanJSONSense.length()>0){
-                    mDocument.add(new Field("german",mGermanJSONSense.toString(),Field.Store.YES,Index.NO));	
-                    mGermanJSONSense = null;
-                }
-                if(mRussianJSONSense.length()>0){
-                    mDocument.add(new Field("russian",mRussianJSONSense.toString(),Field.Store.YES,Index.NO));
-                    mRussianJSONSense = null;
-                }
-                if(mPrioritized){
-                    mPrioritized = false;
-                    mDocument.add(new Field("prioritized", "true", Field.Store.YES,Index.NO));
-                }
-                try {
-                    mCountDone++;
-                    mWriter.addDocument(mDocument);
-                    int persPub = Math.round((((float)mCountDone/ENTRIES_COUNT)*100)) ;
-
-                    if(mPerc < persPub){
-                        if(mPercSave + 4 < persPub){
-                                mWriter.commit();
-                                System.out.println(LOG_TAG+ "Save: "+ persPub+" %");
-                                mPercSave = persPub;
-                        }
-                        mPerc = persPub;
-                        System.out.println(LOG_TAG+ "SaxDataHolder progress saved - " + mPerc + " %");
+            switch(qName){
+                case "sense":
+                    if(mEnglishJSON.length()>0){
+                        mEnglishJSONSense.put(mEnglishJSON);
                     }
-                } catch (CorruptIndexException e) {
-                    System.out.println(LOG_TAG+ "Saving doc - Adding document to lucene indexer failed: "+e.toString());
-                } catch (IOException e){
-                    System.out.println(LOG_TAG+ "Saving doc: Unknown exception: "+e.toString());
-                }
-                mDocument = null;
+                    if(mFrenchJSON.length()>0){
+                        mFrenchJSONSense.put(mFrenchJSON);
+                    }
+                    if(mDutchJSON.length()>0){
+                        mDutchJSONSense.put(mDutchJSON);
+                    }
+                    if(mGermanJSON.length()>0){
+                        mGermanJSONSense.put(mGermanJSON);
+                    }
+                    if(mRussianJSON.length()>0){
+                        mRussianJSONSense.put(mRussianJSON);
+                    }
+                    break;
+                case "entry":
+                    try{
+                        if(mJapaneseKebJSON.length()>0){
+                            mDocument.add(new Field("japanese_keb",mJapaneseKebJSON.toString(),Field.Store.YES, Index.NO));
+                        }
+                        if(mJapaneseRebJSON.length()>0){
+                            mDocument.add(new Field("japanese_reb",mJapaneseRebJSON.toString(),Field.Store.YES, Index.NO));
+                        }
+                        if(mEnglishJSONSense.length()>0){
+                            mDocument.add(new Field("english",mEnglishJSONSense.toString(),Field.Store.YES, Index.NO));
+                            mEnglishJSONSense = null;
+                        }
+                        if(mFrenchJSONSense.length()>0){
+                            mDocument.add(new Field("french",mFrenchJSONSense.toString(),Field.Store.YES, Index.NO));	
+                            mFrenchJSONSense = null;
+                        }
+                        if(mDutchJSONSense.length()>0){
+                            mDocument.add(new Field("dutch",mDutchJSONSense.toString(),Field.Store.YES, Index.NO));	
+                            mDutchJSONSense = null;
+                        }
+                        if(mGermanJSONSense.length()>0){
+                            mDocument.add(new Field("german",mGermanJSONSense.toString(),Field.Store.YES, Index.NO));
+                            mGermanJSONSense = null;
+                        }
+                        if(mRussianJSONSense.length()>0){
+                            mDocument.add(new Field("russian",mRussianJSONSense.toString(),Field.Store.YES, Index.NO));
+                            mRussianJSONSense = null;
+                        }
+                        if(mPrioritized){
+                            mPrioritized = false;
+                            mDocument.add(new Field("prioritized", "true",Field.Store.YES, Index.NO));
+                        }
+                        if(mRebFirst != null && mKebFirst != null){
+                            mDocument.add(new Field("ruby", RubyAnnotation.create(mKebFirst, mRebFirst),Field.Store.YES, Index.NO));
+                            //log.debug("reb: "+mRebFirst+", keb: "+mKebFirst+", ruby: "+RubyAnnotation.create(mKebFirst, mRebFirst));
+                        }
+                    }catch(JSONException ex){
+                        log.error("end tag entry JSON windows", ex);
+                    }
+                    try {
+                        mCountDone++;
+                        mWriter.addDocument(mDocument);
+                        int persPub = Math.round((((float)mCountDone/ENTRIES_COUNT)*100)) ;
+
+                        if(mPerc < persPub){
+                            if(mPercSave + 4 < persPub){
+                                    mWriter.commit();
+                                    log.debug(LOG_TAG+ "Save: "+ persPub+" %");
+                                    mPercSave = persPub;
+                            }
+                            mPerc = persPub;
+                            log.debug(LOG_TAG+ "SaxDataHolder progress saved - " + mPerc + " %");
+                        }
+                    } catch (CorruptIndexException e) {
+                        log.debug(LOG_TAG+ "Saving doc - Adding document to lucene indexer failed: "+e.toString());
+                    } catch (IOException e){
+                        log.debug(LOG_TAG+ "Saving doc: Unknown exception: "+e.toString());
+                    }
+                    mDocument = null;
             }
         } 
 	
 	@Override
 	public void startDocument(){
-            System.out.println(LOG_TAG+ "Start of document");
+            log.debug(LOG_TAG+ "Start of document");
 	}
-	
+        
+        
 	@Override
 	public void endDocument(){ 
-            System.out.println(LOG_TAG+ "End of document");
+            log.debug(LOG_TAG+ "End of document");
             try {
                 mWriter.close();
             } catch (IOException e) {
-                System.out.println(LOG_TAG+ "End of document - closinf lucene writer failed");
+                log.debug(LOG_TAG+ "End of document - closinf lucene writer failed",e);
             }
         } 
 	

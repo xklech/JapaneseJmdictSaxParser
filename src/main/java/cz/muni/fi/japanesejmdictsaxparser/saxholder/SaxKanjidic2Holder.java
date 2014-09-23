@@ -18,6 +18,7 @@
 
 package cz.muni.fi.japanesejmdictsaxparser.saxholder;
 
+
 import java.io.File;
 import java.io.IOException;
 import java.util.logging.Level;
@@ -29,6 +30,7 @@ import org.apache.lucene.analysis.cjk.CJKAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
+
 import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -38,6 +40,7 @@ import org.apache.lucene.util.Version;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.slf4j.LoggerFactory;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -50,7 +53,7 @@ import org.xml.sax.helpers.DefaultHandler;
  *
  */
 public class SaxKanjidic2Holder extends DefaultHandler{
-	
+        final static org.slf4j.Logger log = LoggerFactory.getLogger(SaxKanjidic2Holder.class);  
 	private static final String LOG_TAG = "SaxDataHolderKanjiDict";
 	private boolean mCanceled = false;
 	private IndexWriter mWriter;
@@ -96,6 +99,8 @@ public class SaxKanjidic2Holder extends DefaultHandler{
 	
 	private JSONArray mValueNanori;
 	
+
+        
         /**
          * If called with true SAXDataHolder will terminate
          * 
@@ -109,28 +114,27 @@ public class SaxKanjidic2Holder extends DefaultHandler{
 	/**
 	 * SaxDataHolderKanjiDict constructor
 	 * 
-	 * @param file lucene dictionary for saving documents
+	 * @param androidOutputFolder lucene dictionary for saving documents
 	 * @throws IOException
 	 * @throws IllegalArgumentException if directory doesn't exist
 	 */
-	public SaxKanjidic2Holder(File file) throws IOException,IllegalArgumentException{
-            if(file == null){
-                System.out.println(LOG_TAG+ "SaxDataHolderKanjiDict - dictionary directory is null");
-                throw new IllegalArgumentException("SaxParser: dictionary directory is null");
+	public SaxKanjidic2Holder(File androidOutputFolder) throws IOException,IllegalArgumentException{
+            if(androidOutputFolder == null){
+                log.debug(LOG_TAG+ "SaxDataHolderKanjiDict - dictionary directory is null");
+                throw new IllegalArgumentException("SaxDataHolderKanjiDict: dictionary directory is null");
             }
-
-            Directory dir = FSDirectory.open(file);
+            Directory dir = FSDirectory.open(androidOutputFolder);
             Analyzer  analyzer = new CJKAnalyzer(Version.LUCENE_36);
             IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_36,analyzer);
             mWriter = new IndexWriter(dir, config);
-
-            System.out.println(LOG_TAG+ "SaxDataHolderKanjiDict created");
+            // windows
+            log.debug(LOG_TAG+ "SaxDataHolderKanjiDict created");
 	}
 	
 	
 	@Override
 	public void startDocument() throws SAXException {
-            System.out.println(LOG_TAG+ "Start of document");
+            log.debug(LOG_TAG+ "Start of document");
             super.startDocument();
 	}
 	
@@ -140,52 +144,77 @@ public class SaxKanjidic2Holder extends DefaultHandler{
             if(mCanceled){
                     throw new SAXException("SAX terminated due to ParserService end.");
             }
-            if("character".equals(qName)){
-                mDoc = new Document();
-                mValueDicRef = new JSONObject();
-                mValueRmGroupJaOn = new JSONArray();
-                mValueRmGroupJaKun = new JSONArray();
-                mValueMeaningEnglish = new JSONArray();
-                mValueMeaningFrench = new JSONArray();
-                /*
-                 *  dutch and german aren't in current kanjidict 2
-                 */
-                mValueMeaningDutch = new JSONArray();
-                mValueMeaningGerman = new JSONArray();
+            switch(qName){
+                 
+                case "character":
+                    mDoc = new Document();
+                    mValueDicRef = new JSONObject();
+                    mValueRmGroupJaOn = new JSONArray();
+                    mValueRmGroupJaKun = new JSONArray();
+                    mValueMeaningEnglish = new JSONArray();
+                    mValueMeaningFrench = new JSONArray();
+                    /*
+                     *  dutch and german aren't in current kanjidict 2
+                     */
+                    mValueMeaningDutch = new JSONArray();
+                    mValueMeaningGerman = new JSONArray();
 
-                mValueNanori = new JSONArray();
-            }else if("literal".equals(qName)){
-                mLiteral = true;
-            }else if("rad_value".equals(qName) && "classical".equals(attributes.getValue("rad_type"))){
-                mRadicalClassic = true;
-            }else if("grade".equals(qName)){
-                mGrade = true;
-            }else if("stroke_count".equals(qName)){
-                mStrokeCount = true;
-            }else if("dic_ref".equals(qName)){
-                mDicRef = true;
-                mDicRefKey = attributes.getValue("dr_type");
-            }else if("q_code".equals(qName) && "skip".equals(attributes.getValue("qc_type"))){
-                mQueryCodeSkip = true;
-            }else if("reading".equals(qName)){
-                if("ja_on".equals(attributes.getValue("r_type"))){
-                    mRMGroupJaOn = true;
-                }else if("ja_kun".equals(attributes.getValue("r_type"))){
-                    mRMGroupJaKun = true;
-                }
-            }else if("meaning".equals(qName)){
-                if(attributes.getValue("m_lang") == null){
-                    //english
-                    mMeaningEnglish = true;
-                }else if("fr".equals(attributes.getValue("m_lang"))){
-                    mMeaningFrench = true;
-                }else if("du".equals(attributes.getValue("m_lang"))){
-                    mMeaningDutch = true;
-                }else if("ge".equals(attributes.getValue("m_lang"))){
-                    mMeaningGerman = true;
-                }
-            }else if("nanori".equals(qName)){
-                mNanori = true;
+                    mValueNanori = new JSONArray();
+                break;
+                case "literal":
+                    mLiteral = true;
+                break;
+                case "rad_value":
+                    if("classical".equals(attributes.getValue("rad_type"))){
+                        mRadicalClassic = true;
+                    }
+                break;
+                case "grade":
+                    mGrade = true;
+                break;
+                case "stroke_count":
+                    mStrokeCount = true;
+                break;
+                case "dic_ref":
+                    mDicRef = true;
+                    mDicRefKey = attributes.getValue("dr_type");
+                case "q_code":
+                    if("skip".equals(attributes.getValue("qc_type"))){
+                        mQueryCodeSkip = true;
+                    }
+                break;
+                case "reading":
+                    switch(attributes.getValue("r_type")){
+                        case "ja_on":
+                            mRMGroupJaOn = true;
+                        break;
+                        case "ja_kun":
+                            mRMGroupJaKun = true;
+                        break;
+                    }
+                break;
+                case "meaning":
+                    if(attributes.getValue("m_lang") != null){
+                        switch(attributes.getValue("m_lang")){
+                            case "fr":
+                                mMeaningFrench = true;
+                                break;
+                            case "du":
+                                mMeaningDutch = true;
+                                break;
+                            case "ge":
+                                mMeaningGerman = true;
+                                break;
+                            default:
+                               mMeaningEnglish = true; 
+                        }
+                    }else{
+                        mMeaningEnglish = true; 
+                    }
+                break;
+                case "nanori":
+                    mNanori = true;
+                break;
             }
             super.startElement(uri, localName, qName, attributes);
 	}
@@ -200,19 +229,19 @@ public class SaxKanjidic2Holder extends DefaultHandler{
             }else if(mRadicalClassic){
                 String value = tryParseNumber(new String(ch,start,length));
                 if(value != null){
-                    mDoc.add(new Field("radicalClassic",value,Field.Store.YES,Index.NO));
+                    mDoc.add(new Field("radicalClassic",value,Field.Store.YES, Index.NO));
                 }
                 mRadicalClassic = false;
             }else if(mGrade){
                 String value = tryParseNumber(new String(ch,start,length));
                 if(value != null){
-                    mDoc.add(new Field("grade",value,Field.Store.YES,Index.NO));
+                    mDoc.add(new Field("grade",value,Field.Store.YES, Index.NO));
                 }
                 mGrade = false;
             }else if(mStrokeCount){
                 String value = tryParseNumber(new String(ch,start,length));
                 if(value != null){
-                    mDoc.add(new Field("strokeCount",value,Field.Store.YES,Index.NO));
+                    mDoc.add(new Field("strokeCount",value,Field.Store.YES, Index.NO));
                 }
                 mStrokeCount = false;
             }else if(mDicRef){
@@ -226,7 +255,7 @@ public class SaxKanjidic2Holder extends DefaultHandler{
                     mDicRef = false;
                 }
             }else if(mQueryCodeSkip){
-                mDoc.add(new Field("queryCodeSkip",new String(ch,start,length),Field.Store.YES,Index.NO));
+                mDoc.add(new Field("queryCodeSkip",new String(ch,start,length),Field.Store.YES, Index.NO));
                 mQueryCodeSkip = false;
             }else if(mRMGroupJaOn){
                 mValueRmGroupJaOn.put(new String(ch,start,length));
@@ -257,34 +286,37 @@ public class SaxKanjidic2Holder extends DefaultHandler{
 	public void endElement(String uri, String localName, String qName)
 			throws SAXException {
             if("character".equals(qName)){
-                if(mValueDicRef.length() > 0){
-                    mDoc.add(new Field("dicRef",mValueDicRef.toString(),Field.Store.YES,Index.NO));
+                try{
+                    if(mValueDicRef.length() > 0){
+                        mDoc.add(new Field("dicRef",mValueDicRef.toString(),Field.Store.YES, Index.NO));
+                    }
+                    if(mValueRmGroupJaOn.length() > 0){
+                        mDoc.add(new Field("rmGroupJaOn",mValueRmGroupJaOn.toString(),Field.Store.YES, Index.NO));
+                    }
+                    if(mValueRmGroupJaKun.length() > 0){
+                        mDoc.add(new Field("rmGroupJaKun",mValueRmGroupJaKun.toString(),Field.Store.YES, Index.NO));
+                    }
+                    if(mValueMeaningEnglish.length() > 0){
+                        mDoc.add(new Field("meaningEnglish",mValueMeaningEnglish.toString(),Field.Store.YES, Index.NO));
+                    }
+                    if(mValueMeaningFrench.length() > 0){
+                        mDoc.add(new Field("meaningFrench",mValueMeaningFrench.toString(),Field.Store.YES, Index.NO));
+                    }
+                    /*
+                     *  dutch and german aren't in current kanjidict 2
+                     */
+                    if(mValueMeaningDutch.length() > 0){
+                        mDoc.add(new Field("meaningDutch",mValueMeaningDutch.toString(),Field.Store.YES, Index.NO));
+                    }
+                    if(mValueMeaningGerman.length() > 0){
+                        mDoc.add(new Field("meaningGerman",mValueMeaningGerman.toString(),Field.Store.YES, Index.NO));
+                    }
+                    if(mValueNanori.length() > 0){
+                        mDoc.add(new Field("nanori",mValueNanori.toString(),Field.Store.YES, Index.NO));
+                    }
+                }catch(JSONException ex){
+                    log.error("end tag entry JSON windows", ex);
                 }
-                if(mValueRmGroupJaOn.length() > 0){
-                    mDoc.add(new Field("rmGroupJaOn",mValueRmGroupJaOn.toString(),Field.Store.YES,Index.NO));
-                }
-                if(mValueRmGroupJaKun.length() > 0){
-                    mDoc.add(new Field("rmGroupJaKun",mValueRmGroupJaKun.toString(),Field.Store.YES,Index.NO));
-                }
-                if(mValueMeaningEnglish.length() > 0){
-                    mDoc.add(new Field("meaningEnglish",mValueMeaningEnglish.toString(),Field.Store.YES,Index.NO));
-                }
-                if(mValueMeaningFrench.length() > 0){
-                    mDoc.add(new Field("meaningFrench",mValueMeaningFrench.toString(),Field.Store.YES,Index.NO));
-                }
-                /*
-                 *  dutch and german aren't in current kanjidict 2
-                 */
-                if(mValueMeaningDutch.length() > 0){
-                    mDoc.add(new Field("meaningDutch",mValueMeaningDutch.toString(),Field.Store.YES,Index.NO));
-                }
-                if(mValueMeaningGerman.length() > 0){
-                    mDoc.add(new Field("meaningGerman",mValueMeaningGerman.toString(),Field.Store.YES,Index.NO));
-                }
-                if(mValueNanori.length() > 0){
-                    mDoc.add(new Field("nanori",mValueNanori.toString(),Field.Store.YES,Index.NO));
-                }
-
                 try {
                     mCountDone++;
                     mWriter.addDocument(mDoc);
@@ -293,15 +325,15 @@ public class SaxKanjidic2Holder extends DefaultHandler{
                     if(mPerc < persPub){
                         if(mPercSave + 4 < persPub){
                             mWriter.commit();
-                            System.out.println(LOG_TAG+ "SaxDataHolder progress saved - " + persPub + " %");
+                            log.debug(LOG_TAG+ "SaxDataHolder progress saved - " + persPub + " %");
                             mPercSave = persPub;
                         }
                         mPerc = persPub;
                     }
                 } catch (CorruptIndexException e) {
-                    System.out.println(LOG_TAG+ "Saving doc - Adding document to lucene indexer failed: "+e.toString());
+                    log.debug(LOG_TAG+ "Saving doc - Adding document to lucene indexer failed: "+e.toString());
                 } catch (IOException e){
-                    System.out.println(LOG_TAG+ "Saving doc: Unknown exception: "+e.toString());
+                    log.debug(LOG_TAG+ "Saving doc: Unknown exception: "+e.toString());
                 }
                 mDoc = null;
             }
@@ -312,11 +344,11 @@ public class SaxKanjidic2Holder extends DefaultHandler{
 	
 	@Override
 	public void endDocument(){ 
-            System.out.println(LOG_TAG+ "End of document");
+            log.debug(LOG_TAG+ "End of document");
             try {
                 mWriter.close();
             } catch (IOException e) {
-                System.out.println(LOG_TAG+ "End of document - closinf lucene writer failed");
+                log.debug(LOG_TAG+ "End of document - closinf lucene writer failed",e);
             }
     } 
 	
@@ -339,7 +371,7 @@ public class SaxKanjidic2Holder extends DefaultHandler{
                     return String.valueOf(number);
                 }
             }catch(NumberFormatException ex){
-                System.out.println(LOG_TAG+"Parsing number - NumberFormatException: "+ parse);
+                log.debug(LOG_TAG+"Parsing number - NumberFormatException: "+ parse,ex);
             }
             return null;
 	}
