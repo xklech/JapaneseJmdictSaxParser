@@ -31,6 +31,7 @@ public class CronTaskProvider {
     final static Logger log = LoggerFactory.getLogger(CronTaskProvider.class);   
     public static final String JMDICT = "http://ftp.monash.edu.au/pub/nihongo/JMdict.gz";
     public static final String KANJIDICT = "http://www.csse.monash.edu.au/~jwb/kanjidic2/kanjidic2.xml.gz";
+    public static final String TATOEBA_JAPANESE_INDICES = "http://downloads.tatoeba.org/exports/jpn_indices.tar.bz2";
     public static final String TATOEBA_SENTENCES = "http://downloads.tatoeba.org/exports/sentences.tar.bz2";
     public static final String TATOEBA_LINKS = "http://downloads.tatoeba.org/exports/links.tar.bz2";
     public static void deleteSources(File folder){
@@ -112,15 +113,23 @@ public class CronTaskProvider {
     
     
     public static void downloadPreprocesTatoebaSentences() throws MalformedURLException, IOException{
+        URL tatoebaJapaneseIndicesUrl = new URL(TATOEBA_JAPANESE_INDICES);
+        File japaneseIndices = new File(System.getenv("OPENSHIFT_DATA_DIR")+"sources/tatoeba-indices.tar.bz2");
+        File tatoebaJapaneseIndices = Downloader.downloadFile(tatoebaJapaneseIndicesUrl, japaneseIndices);
+        
+        
         URL tatoebaSentencesUrl = new URL(TATOEBA_SENTENCES);
-        File file = new File(System.getenv("OPENSHIFT_DATA_DIR")+"sources/tatoeba-sentences.tar.bz2");
-        File tatoebaSentences = Downloader.downloadFile(tatoebaSentencesUrl, file);
+        File sentences = new File(System.getenv("OPENSHIFT_DATA_DIR")+"sources/tatoeba-sentences.tar.bz2");
+        File tatoebaSentences = Downloader.downloadFile(tatoebaSentencesUrl, sentences);
+        
+        
         URL tatoebaLinksUrl = new URL(TATOEBA_LINKS);
         File fileLinks = new File(System.getenv("OPENSHIFT_DATA_DIR")+"sources/tatoeba-links.tar.bz2");
         File tatoebaLinks = Downloader.downloadFile(tatoebaLinksUrl, fileLinks);
+
         log.debug("tatoeba - gzip reader");
         
-        CsvParser.prepareCsv(tatoebaSentences, tatoebaLinks);
+        CsvParser.prepareCsv(tatoebaJapaneseIndices, tatoebaSentences, tatoebaLinks);
     }
     
     

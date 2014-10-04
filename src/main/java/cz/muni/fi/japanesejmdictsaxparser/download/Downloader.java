@@ -25,23 +25,6 @@ public class Downloader {
         fos.close();
         rbc.close();
         return file;
-    }
-
-    
-    public static File downloadTatoebaSentences(URL url) throws IOException{
-        (new File(System.getenv("OPENSHIFT_DATA_DIR")+"sources")).mkdirs();
-
-        File file = new File(System.getenv("OPENSHIFT_DATA_DIR")+"sources/tatoeba_sentences.tar.bz2");
-        if(file.exists()){
-            file.delete();
-        }
-        ReadableByteChannel rbc = Channels.newChannel(url.openStream());
-        FileOutputStream fos = new FileOutputStream(file);
-        fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
-        fos.close();
-        rbc.close();
-        return file;
-    }
-    
+    }   
     
 }
