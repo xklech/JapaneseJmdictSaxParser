@@ -1,5 +1,6 @@
 package cz.muni.fi.japanesedictionary.tatoeba;
 
+import cz.muni.fi.japanesedictionary.enums.Lang;
 import cz.muni.fi.japanesejmdictsaxparser.util.CompressFolder;
 import java.io.BufferedReader;
 import java.io.File;
@@ -17,7 +18,6 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.cjk.CJKAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
-import org.apache.lucene.document.NumericField;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
@@ -65,7 +65,7 @@ public class CsvParser {
         try (BufferedReader inputBReader = new BufferedReader(new InputStreamReader(inputIndices, StandardCharsets.UTF_8)); IndexWriter mWriter = new IndexWriter(dirIndices, configIndices)) {
                         
             Document mDocument = new Document();
-            NumericField japaneseSentenceId = new NumericField("japanese_sentence_id", Field.Store.YES, false);
+            Field japaneseSentenceId = new Field("japanese_sentence_id", "", Field.Store.YES, Field.Index.NO);
             Field japaneseTag = new Field("japanese_tag", "", Field.Store.YES, Field.Index.NOT_ANALYZED);
             mDocument.add(japaneseSentenceId);
             mDocument.add(japaneseTag);
@@ -77,7 +77,7 @@ public class CsvParser {
                 if( split != null && split.length > 2 && split[2] != null )  {
                     try{
                         int idJapaneseSentence = Integer.parseInt(split[0]);
-                        japaneseSentenceId.setIntValue(idJapaneseSentence);
+                        japaneseSentenceId.setValue(split[0]);
                         japaneseIds.add(idJapaneseSentence);
                         mapOtherJapanese.put(idJapaneseSentence, idJapaneseSentence);
                         String[] indices = split[2].split(" ");
@@ -86,10 +86,10 @@ public class CsvParser {
                             count++;
                             if(indice.contains("(")){
                                 kanji = indice.substring(0, indice.indexOf("("));
-                                log.debug("indice: " + indice);
+                                //log.debug("indice: " + indice);
                                 String reading = indice.substring(indice.indexOf('(')+1, indice.indexOf(')'));
                                 if(reading != null && reading.length() > 0){
-                                    log.debug("reading: " + reading);
+                                    //log.debug("reading: " + reading);
                                     japaneseTag.setValue(reading);
                                     mWriter.addDocument(mDocument);
                                 }
@@ -158,27 +158,29 @@ public class CsvParser {
         try (BufferedReader inputBReader = new BufferedReader(new InputStreamReader(inputSentenses, StandardCharsets.UTF_8)); IndexWriter mWriter = new IndexWriter(dirLanguage, configLanguage)) {
                         
             Document mDocument = new Document();
-            Field translation = new Field("sentence", "", Field.Store.YES, Field.Index.NO);
-            Field language = new Field("japanese", "", Field.Store.YES, Field.Index.NO);
-            NumericField idField = new NumericField("japanese_id");
-            mDocument.add(translation);
+            Field sentence = new Field("sentence", "", Field.Store.YES, Field.Index.NO);
+            Field language = new Field("language", "", Field.Store.YES, Field.Index.NO);
+            Field idField = new Field("japanese_id", "", Field.Store.NO, Field.Index.NOT_ANALYZED);
+            mDocument.add(sentence);
             mDocument.add(language);
             mDocument.add(idField);
             int count = 0;  
             int number = 0;
                         
             String line;
+            
+            Set<String> languages = Lang.getAll();
+            
             while (null != (line = inputBReader.readLine())) {
-                log.debug(line);
+                //log.debug(line);
                 String[] split = line.split("\\t");
-                if( split != null && split.length > 1 )  {
+                if( split != null && split.length > 2 )  {
                     try{
                         int idSource = Integer.parseInt(split[0]);
-                        if(mapOtherJapanese.containsKey(idSource)){
-                            
-                            translation.setValue(split[2]);
+                        if(mapOtherJapanese.containsKey(idSource) && languages.contains(split[1])){   
+                            sentence.setValue(split[2]);
                             language.setValue(split[1]);
-                            idField.setIntValue(mapOtherJapanese.get(idSource));                        
+                            idField.setValue(String.valueOf(mapOtherJapanese.get(idSource)));                        
                             mWriter.addDocument(mDocument);
                             count++;
                             if(count > 100_000){

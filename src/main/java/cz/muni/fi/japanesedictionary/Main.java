@@ -26,9 +26,9 @@ import org.xml.sax.SAXException;
 public class Main {
     
     public static void main(String [] args){
-        Map<String, String> map = new HashMap<>();
+        /*Map<String, String> map = new HashMap<>();
         map.put("OPENSHIFT_DATA_DIR", "output/");
-        setEnv(map);
+        setEnv(map);*/
         try {
             File sourceFolder = new File(System.getenv("OPENSHIFT_DATA_DIR")+"sources");
             CompressFolder.deleteDirectory(sourceFolder);
